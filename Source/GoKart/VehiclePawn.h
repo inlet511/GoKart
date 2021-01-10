@@ -42,14 +42,15 @@ private:
 	UPROPERTY(EditAnywhere)
 	float MaxDrivingForce = 10000;
 
-	UPROPERTY(EditAnywhere)
-	float MaxRotateSpeed = 90.0f;
 
 	UPROPERTY(EditAnywhere)
 	float DragCoefficient = 16;
 
 	UPROPERTY(EditAnywhere)
 	float RollingDragCoefficient = 0.1;
+
+	UPROPERTY(EditAnywhere)
+	float TurningRadius = 10.0f;
 
 	void MoveForward(float Value);
 	void MoveRight(float Value);

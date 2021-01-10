@@ -75,7 +75,8 @@ void AVehiclePawn::MoveRight(float Value)
 
 void AVehiclePawn::UpdateRotation(float DeltaTime)
 {
-	FQuat RotationDelta(GetActorUpVector(), FMath::DegreesToRadians(DeltaTime * MaxRotateSpeed * SteeringValue));
+	auto sign = FMath::Sign(FVector::DotProduct(Velocity, GetActorForwardVector()));
+	FQuat RotationDelta(GetActorUpVector(), sign* Velocity.Size() * DeltaTime * SteeringValue/TurningRadius);
 
 	Velocity = RotationDelta.RotateVector(Velocity);
 
