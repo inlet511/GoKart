@@ -4,6 +4,7 @@
 #include "VehiclePawn.h"
 #include "Components/InputComponent.h"
 #include "Engine/World.h"
+#include "DrawDebugHelpers.h"
 
 // Sets default values
 AVehiclePawn::AVehiclePawn()
@@ -18,6 +19,23 @@ void AVehiclePawn::BeginPlay()
 {
 	Super::BeginPlay();
 	
+}
+
+FString GetEnumText(ENetRole Role)
+{
+	switch (Role)
+	{
+	case ROLE_None:
+		return "None";		
+	case ROLE_SimulatedProxy:
+		return "Simulated";
+	case ROLE_AutonomousProxy:
+		return "AutonomousProxy";
+	case ROLE_Authority:
+		return "Authority";
+	default:
+		return "Error";
+	}
 }
 
 // Called every frame
@@ -53,6 +71,8 @@ void AVehiclePawn::Tick(float DeltaTime)
 
 	UpdateLocationFromVelocity(DeltaTime);
 
+	DrawDebugString(GetWorld(), FVector(0, 0, 100), GetEnumText(Role), this, FColor::White, DeltaTime);
+
 }
 
 // Called to bind functionality to input
@@ -63,14 +83,38 @@ void AVehiclePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	PlayerInputComponent->BindAxis("MoveRight", this, &AVehiclePawn::MoveRight);
 }
 
+
+
 void AVehiclePawn::MoveForward(float Value)
 {
 	Throttle = Value;
+	Server_MoveForward(Value);
+}
+
+void AVehiclePawn::Server_MoveForward_Implementation(float Value)
+{
+	Throttle = Value;
+}
+
+bool AVehiclePawn::Server_MoveForward_Validate(float Value)
+{
+	return FMath::Abs(Value) <= 1.0f;
 }
 
 void AVehiclePawn::MoveRight(float Value)
 {
 	SteeringValue = Value;
+	Server_MoveRight(Value);
+}
+
+void AVehiclePawn::Server_MoveRight_Implementation(float Value)
+{
+	SteeringValue = Value;
+}
+
+bool AVehiclePawn::Server_MoveRight_Validate(float Value)
+{
+	return FMath::Abs(Value) <= 1.0f;
 }
 
 void AVehiclePawn::UpdateRotation(float DeltaTime)
