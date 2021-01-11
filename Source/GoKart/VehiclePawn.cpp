@@ -5,13 +5,15 @@
 #include "Components/InputComponent.h"
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
+#include "Net/UnrealNetwork.h"
 
 // Sets default values
 AVehiclePawn::AVehiclePawn()
 {
  	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-
+	bReplicates = true;
+	NetUpdateFrequency = 1.0f;
 }
 
 // Called when the game starts or when spawned
@@ -19,6 +21,13 @@ void AVehiclePawn::BeginPlay()
 {
 	Super::BeginPlay();
 	
+}
+
+void AVehiclePawn::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AVehiclePawn, ReplicatedLocation);
+	DOREPLIFETIME(AVehiclePawn, ReplicatedRotation);
 }
 
 FString GetEnumText(ENetRole Role)
@@ -71,6 +80,17 @@ void AVehiclePawn::Tick(float DeltaTime)
 
 	UpdateLocationFromVelocity(DeltaTime);
 
+	if (HasAuthority())
+	{
+		ReplicatedLocation = GetActorLocation();
+		ReplicatedRotation = GetActorRotation();
+	}
+	else
+	{
+		SetActorLocation(ReplicatedLocation);
+		SetActorRotation(ReplicatedRotation);
+	}
+
 	DrawDebugString(GetWorld(), FVector(0, 0, 100), GetEnumText(Role), this, FColor::White, DeltaTime);
 
 }
@@ -84,6 +104,11 @@ void AVehiclePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 }
 
 
+
+void AVehiclePawn::OnRep_Location()
+{
+	UE_LOG(LogTemp, Warning, TEXT("Location Updated"));
+}
 
 void AVehiclePawn::MoveForward(float Value)
 {

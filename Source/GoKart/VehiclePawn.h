@@ -15,6 +15,7 @@ public:
 	// Sets default values for this pawn's properties
 	AVehiclePawn();
 
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -32,6 +33,15 @@ public:
 
 private:
 	FVector Velocity;
+
+	UPROPERTY(ReplicatedUsing=OnRep_Location)
+	FVector ReplicatedLocation;
+
+	UFUNCTION()
+	void OnRep_Location();
+
+	UPROPERTY(Replicated)
+	FRotator ReplicatedRotation;
 
 	float Throttle;
 	float SteeringValue;
