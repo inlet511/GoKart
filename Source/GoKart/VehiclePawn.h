@@ -6,6 +6,29 @@
 #include "GameFramework/Pawn.h"
 #include "VehiclePawn.generated.h"
 
+USTRUCT()
+struct FVehiclePawnMove
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	float Throttle;
+
+	UPROPERTY()
+	float SteeringValue;
+
+	UPROPERTY()
+	float DeltaTime;
+};
+
+USTRUCT()
+struct FVehiclePawnState
+{
+	GENERATED_USTRUCT_BODY()
+	FVehiclePawnMove LastMove;
+};
+
+
 UCLASS()
 class GOKART_API AVehiclePawn : public APawn
 {
@@ -32,18 +55,20 @@ public:
 
 
 private:
-	FVector Velocity;
-
-	UPROPERTY(ReplicatedUsing=OnRep_Location)
-	FVector ReplicatedLocation;
-
-	UFUNCTION()
-	void OnRep_Location();
 
 	UPROPERTY(Replicated)
-	FRotator ReplicatedRotation;
+	FVector Velocity;
 
+	UPROPERTY(ReplicatedUsing= OnRep_Transform)
+	FTransform ReplicatedTransform;
+
+	UFUNCTION()
+	void OnRep_Transform();
+
+	UPROPERTY(Replicated)
 	float Throttle;
+
+	UPROPERTY(Replicated)
 	float SteeringValue;
 
 	UPROPERTY(EditAnywhere)

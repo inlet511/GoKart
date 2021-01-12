@@ -26,8 +26,10 @@ void AVehiclePawn::BeginPlay()
 void AVehiclePawn::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(AVehiclePawn, ReplicatedLocation);
-	DOREPLIFETIME(AVehiclePawn, ReplicatedRotation);
+	DOREPLIFETIME(AVehiclePawn, ReplicatedTransform);
+	DOREPLIFETIME(AVehiclePawn, Velocity);
+	DOREPLIFETIME(AVehiclePawn, Throttle);
+	DOREPLIFETIME(AVehiclePawn, SteeringValue);
 }
 
 FString GetEnumText(ENetRole Role)
@@ -82,13 +84,7 @@ void AVehiclePawn::Tick(float DeltaTime)
 
 	if (HasAuthority())
 	{
-		ReplicatedLocation = GetActorLocation();
-		ReplicatedRotation = GetActorRotation();
-	}
-	else
-	{
-		SetActorLocation(ReplicatedLocation);
-		SetActorRotation(ReplicatedRotation);
+		ReplicatedTransform = GetActorTransform();
 	}
 
 	DrawDebugString(GetWorld(), FVector(0, 0, 100), GetEnumText(Role), this, FColor::White, DeltaTime);
@@ -105,9 +101,9 @@ void AVehiclePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 
 
-void AVehiclePawn::OnRep_Location()
+void AVehiclePawn::OnRep_Transform()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Location Updated"));
+	SetActorTransform(ReplicatedTransform);
 }
 
 void AVehiclePawn::MoveForward(float Value)
