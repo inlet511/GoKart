@@ -19,13 +19,24 @@ struct FVehiclePawnMove
 
 	UPROPERTY()
 	float DeltaTime;
+
+	UPROPERTY()
+	float Time;
 };
 
 USTRUCT()
 struct FVehiclePawnState
 {
 	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
 	FVehiclePawnMove LastMove;
+
+	UPROPERTY()
+	FTransform Transform;
+
+	UPROPERTY()
+	FVector Velocity;
 };
 
 
@@ -47,7 +58,9 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	void UpdateRotation( float DeltaTime);	
+	FVehiclePawnMove CreateMove(const float DeltaTime);
+
+	void UpdateRotation( float DeltaTime,float Steering);	
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
@@ -56,19 +69,17 @@ public:
 
 private:
 
-	UPROPERTY(Replicated)
-	FVector Velocity;
+	void SimulateMove(const FVehiclePawnMove& Move);
 
-	UPROPERTY(ReplicatedUsing= OnRep_Transform)
-	FTransform ReplicatedTransform;
+	UPROPERTY(ReplicatedUsing= OnRep_ServerState)
+	FVehiclePawnState ServerState;
 
 	UFUNCTION()
-	void OnRep_Transform();
+	void OnRep_ServerState();
 
-	UPROPERTY(Replicated)
+	FVector Velocity;
+
 	float Throttle;
-
-	UPROPERTY(Replicated)
 	float SteeringValue;
 
 	UPROPERTY(EditAnywhere)
@@ -89,15 +100,15 @@ private:
 
 
 	void MoveForward(float Value);
-
-	UFUNCTION(Server,Reliable,WithValidation)
-	void Server_MoveForward(float Value);
-
-
 	void MoveRight(float Value);
 
-	UFUNCTION(Server, Reliable, WithValidation)
-	void Server_MoveRight(float Value);
+	UFUNCTION(Server,Reliable,WithValidation)
+	void Server_SendMove(FVehiclePawnMove Move);
+
 
 	void UpdateLocationFromVelocity(float DeltaTime);
+
+	TArray<FVehiclePawnMove> UnacknowledgedMoves;
+
+	void ClearMoves(const FVehiclePawnMove& Move);
 };
