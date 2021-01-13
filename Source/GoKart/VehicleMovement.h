@@ -43,13 +43,16 @@ public:
 
 	FVehiclePawnMove CreateMove(const float DeltaTime);
 
-	FVector GetVelocity() { return Velocity; }
+	FVector GetVelocity() { return Velocity; };
 
-	void SetVelocity(FVector Value) { Velocity = Value; }
+	void SetVelocity(FVector Value) { Velocity = Value; };
 
-	void SetThrottle(float Value) { Throttle = Value; }
+	void SetThrottle(float Value) { Throttle = Value; };
 
-	void SetSteering(float Value) { SteeringValue = Value; }
+	void SetSteering(float Value) { SteeringValue = Value; };
+
+	FVehiclePawnMove GetLastMove() { return LastMove; };
+	
 
 private:	
 	// Called every frame
@@ -71,6 +74,8 @@ private:
 
 	UPROPERTY(EditAnywhere)
 	float TurningRadius = 10.0f;
+
+	FVehiclePawnMove LastMove;
 
 	void UpdateLocationFromVelocity(float DeltaTime);
 

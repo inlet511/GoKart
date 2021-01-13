@@ -14,7 +14,7 @@ AVehiclePawn::AVehiclePawn()
  	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
-
+	SetReplicateMovement(false);
 	MovementComp = CreateDefaultSubobject<UVehicleMovement>(TEXT("Movement Component"));	
 	ReplicationComp = CreateDefaultSubobject<UReplicationComponent>(TEXT("Replication Component"));
 }

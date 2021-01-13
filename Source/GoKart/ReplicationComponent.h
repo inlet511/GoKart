@@ -42,6 +42,8 @@ public:
 private:
 	TArray<FVehiclePawnMove> UnacknowledgedMoves;
 
+	void UpdateServerState(const FVehiclePawnMove& Move);
+
 	UFUNCTION(Server, Reliable, WithValidation)
 	void Server_SendMove(FVehiclePawnMove Move);
 
@@ -50,9 +52,18 @@ private:
 
 	UFUNCTION()
 	void OnRep_ServerState();
+	void SimulatedProxy_OnRep_ServerState();
+	void AutonomousProxy_OnRep_ServerState();
 
 	void ClearMoves(const FVehiclePawnMove& Move);
 
 	UPROPERTY()
 	UVehicleMovement* MovementComponent;
+
+	float ClientTimeSinceUpdate;
+	float CLientTimeBetweenLastUpdates;
+	FVector ClientStartLocation;
+	FQuat ClientStartRotation;
+
+	void ClientTick(float DeltaTime);
 };

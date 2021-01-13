@@ -31,7 +31,11 @@ void UVehicleMovement::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	// ...
+	if (GetOwnerRole() == ROLE_AutonomousProxy || (GetOwnerRole() == ROLE_Authority&& Cast<APawn>(GetOwner())->IsLocallyControlled()))
+	{	
+		LastMove =CreateMove(DeltaTime);
+		SimulateMove(LastMove);
+	}
 }
 
 FVehiclePawnMove UVehicleMovement::CreateMove(const float DeltaTime)
