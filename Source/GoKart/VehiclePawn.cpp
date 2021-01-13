@@ -16,6 +16,7 @@ AVehiclePawn::AVehiclePawn()
 	bReplicates = true;
 
 	MovementComp = CreateDefaultSubobject<UVehicleMovement>(TEXT("Movement Component"));	
+	ReplicationComp = CreateDefaultSubobject<UReplicationComponent>(TEXT("Replication Component"));
 }
 
 // Called when the game starts or when spawned
@@ -28,11 +29,6 @@ void AVehiclePawn::BeginPlay()
 	}
 }
 
-void AVehiclePawn::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(AVehiclePawn, ServerState);
-}
 
 FString GetEnumText(ENetRole Role)
 {
@@ -57,48 +53,13 @@ void AVehiclePawn::Tick(float DeltaTime)
 
 	Super::Tick(DeltaTime);	
 
-	if (MovementComp == nullptr) return;
 
-	// AutonomouseProxy
-	if (GetLocalRole() == ROLE_AutonomousProxy)
-	{
-		FVehiclePawnMove Move = MovementComp->CreateMove(DeltaTime);
-		MovementComp->SimulateMove(Move);
-		UnacknowledgedMoves.Add(Move);
-		Server_SendMove(Move);
-	}
-
-	// 服务端控制的 Authority 
-	if (GetLocalRole() == ROLE_Authority && IsLocallyControlled())
-	{
-		FVehiclePawnMove Move = MovementComp->CreateMove(DeltaTime);
-		Server_SendMove(Move);
-	}
-
-	// Simulated Proxy
-	if (GetLocalRole() == ROLE_SimulatedProxy)
-	{
-		MovementComp->SimulateMove(ServerState.LastMove);
-	}
 
 	DrawDebugString(GetWorld(), FVector(0, 0, 100), GetEnumText(GetLocalRole()), this, FColor::White, DeltaTime);
 }
 
 
 
-void AVehiclePawn::Server_SendMove_Implementation(FVehiclePawnMove Move)
-{
-	if (MovementComp == nullptr) return;
-	MovementComp->SimulateMove(Move);
-	ServerState.LastMove = Move;
-	ServerState.Transform = GetActorTransform();
-	ServerState.Velocity = MovementComp->GetVelocity();
-}
-
-bool AVehiclePawn::Server_SendMove_Validate(FVehiclePawnMove Move)
-{
-	return true; // TODO 
-}
 
 // Called to bind functionality to input
 void AVehiclePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -108,17 +69,6 @@ void AVehiclePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 	PlayerInputComponent->BindAxis("MoveRight", this, &AVehiclePawn::MoveRight);
 }
 
-
-void AVehiclePawn::OnRep_ServerState()
-{
-	SetActorTransform(ServerState.Transform);
-	MovementComp->SetVelocity(ServerState.Velocity);
-	ClearMoves(ServerState.LastMove);
-	for (const FVehiclePawnMove& Move : UnacknowledgedMoves)
-	{
-		MovementComp->SimulateMove(Move);
-	}
-}
 
 
 void AVehiclePawn::MoveForward(float Value)
@@ -133,18 +83,3 @@ void AVehiclePawn::MoveRight(float Value)
 	MovementComp->SetSteering(Value);
 }
 
-
-void AVehiclePawn::ClearMoves(const FVehiclePawnMove& Move)
-{
-	TArray<FVehiclePawnMove> NewMoves;
-
-	for (const FVehiclePawnMove& item : UnacknowledgedMoves)
-	{
-		if (item.Time > Move.Time)
-		{
-			NewMoves.Add(item);
-		}
-	}
-
-	UnacknowledgedMoves = NewMoves;
-}
