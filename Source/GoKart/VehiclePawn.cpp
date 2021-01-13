@@ -14,7 +14,8 @@ AVehiclePawn::AVehiclePawn()
  	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
-	
+
+	MovementComp = CreateDefaultSubobject<UVehicleMovement>(TEXT("Movement Component"));	
 }
 
 // Called when the game starts or when spawned
@@ -56,31 +57,47 @@ void AVehiclePawn::Tick(float DeltaTime)
 
 	Super::Tick(DeltaTime);	
 
-	if (IsLocallyControlled()) {
-		FVehiclePawnMove Move = CreateMove(DeltaTime);
-		if (!HasAuthority())
-		{
-			UnacknowledgedMoves.Add(Move);
-			UE_LOG(LogTemp, Warning, TEXT("Queue Lenght:%d"), UnacknowledgedMoves.Num());
-			Server_SendMove(Move);
-			SimulateMove(Move);
-		}
+	if (MovementComp == nullptr) return;
+
+	// AutonomouseProxy
+	if (GetLocalRole() == ROLE_AutonomousProxy)
+	{
+		FVehiclePawnMove Move = MovementComp->CreateMove(DeltaTime);
+		MovementComp->SimulateMove(Move);
+		UnacknowledgedMoves.Add(Move);
+		Server_SendMove(Move);
 	}
 
-	
+	// 服务端控制的 Authority 
+	if (GetLocalRole() == ROLE_Authority && IsLocallyControlled())
+	{
+		FVehiclePawnMove Move = MovementComp->CreateMove(DeltaTime);
+		Server_SendMove(Move);
+	}
+
+	// Simulated Proxy
+	if (GetLocalRole() == ROLE_SimulatedProxy)
+	{
+		MovementComp->SimulateMove(ServerState.LastMove);
+	}
 
 	DrawDebugString(GetWorld(), FVector(0, 0, 100), GetEnumText(GetLocalRole()), this, FColor::White, DeltaTime);
-
 }
 
-FVehiclePawnMove AVehiclePawn::CreateMove(const float DeltaTime)
+
+
+void AVehiclePawn::Server_SendMove_Implementation(FVehiclePawnMove Move)
 {
-	FVehiclePawnMove Move;
-	Move.DeltaTime = DeltaTime;
-	Move.SteeringValue = SteeringValue;
-	Move.Throttle = Throttle;
-	Move.Time = GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
-	return Move;
+	if (MovementComp == nullptr) return;
+	MovementComp->SimulateMove(Move);
+	ServerState.LastMove = Move;
+	ServerState.Transform = GetActorTransform();
+	ServerState.Velocity = MovementComp->GetVelocity();
+}
+
+bool AVehiclePawn::Server_SendMove_Validate(FVehiclePawnMove Move)
+{
+	return true; // TODO 
 }
 
 // Called to bind functionality to input
@@ -92,93 +109,30 @@ void AVehiclePawn::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 }
 
 
-
-void AVehiclePawn::SimulateMove(const FVehiclePawnMove& Move)
-{
-	// Driving Force
-	FVector Force = GetActorForwardVector() * Move.Throttle * MaxDrivingForce;
-
-
-	// Air Drag
-	FVector AirDrag = -Velocity.GetSafeNormal() * Velocity.SizeSquared() * DragCoefficient;
-	Force += AirDrag;
-
-	// Rolling Drag
-	if (Velocity.Size() > 0.01f)
-	{
-		float g = -GetWorld()->GetGravityZ() * 0.01;
-		FVector RollingDrag = -Velocity.GetSafeNormal() * RollingDragCoefficient * Mass * g;
-		Force += RollingDrag;
-	}
-
-	// Acceleration
-	FVector Acceleration = Force / Mass;
-
-	Velocity = Velocity + Acceleration * Move.DeltaTime;
-
-	UpdateRotation(Move.DeltaTime,Move.SteeringValue);
-
-	UpdateLocationFromVelocity(Move.DeltaTime);
-}
-
 void AVehiclePawn::OnRep_ServerState()
 {
 	SetActorTransform(ServerState.Transform);
-	Velocity = ServerState.Velocity;
+	MovementComp->SetVelocity(ServerState.Velocity);
 	ClearMoves(ServerState.LastMove);
 	for (const FVehiclePawnMove& Move : UnacknowledgedMoves)
 	{
-		SimulateMove(Move);
+		MovementComp->SimulateMove(Move);
 	}
 }
-
 
 
 void AVehiclePawn::MoveForward(float Value)
 {
-	Throttle = Value;	
+	if (MovementComp == nullptr) return;
+	MovementComp->SetThrottle(Value);
 }
 
 void AVehiclePawn::MoveRight(float Value)
 {
-	SteeringValue = Value;
+	if (MovementComp == nullptr) return;
+	MovementComp->SetSteering(Value);
 }
 
-void AVehiclePawn::Server_SendMove_Implementation(FVehiclePawnMove Move)
-{
-	SimulateMove(Move);
-	ServerState.LastMove = Move;
-	ServerState.Transform = GetActorTransform();
-	ServerState.Velocity = Velocity;
-}
-
-bool AVehiclePawn::Server_SendMove_Validate(FVehiclePawnMove Move)
-{
-	return true; // TODO 
-}
-
-
-void AVehiclePawn::UpdateRotation(float DeltaTime, float Steering)
-{
-	auto sign = FMath::Sign(FVector::DotProduct(Velocity, GetActorForwardVector()));
-	FQuat RotationDelta(GetActorUpVector(), sign* Velocity.Size() * DeltaTime * Steering /TurningRadius);
-
-	Velocity = RotationDelta.RotateVector(Velocity);
-
-	AddActorWorldRotation(RotationDelta);
-}
-
-void AVehiclePawn::UpdateLocationFromVelocity(float DeltaTime)
-{
-	FVector Translation = Velocity * DeltaTime * 100;
-
-	FHitResult Hit;
-	AddActorWorldOffset(Translation, true, &Hit);
-	if (Hit.IsValidBlockingHit())
-	{
-		Velocity = FVector::ZeroVector;
-	}
-}
 
 void AVehiclePawn::ClearMoves(const FVehiclePawnMove& Move)
 {
