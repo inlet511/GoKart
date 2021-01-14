@@ -95,10 +95,12 @@ void UReplicationComponent::OnRep_ServerState()
 
 void UReplicationComponent::SimulatedProxy_OnRep_ServerState()
 {
+	if (MovementComponent == nullptr) return;
 	CLientTimeBetweenLastUpdates = ClientTimeSinceUpdate;
 	ClientTimeSinceUpdate = 0;
-	ClientStartLocation = GetOwner()->GetActorLocation();
-	ClientStartRotation = GetOwner()->GetActorTransform().GetRotation();
+
+	ClientStartTransform = GetOwner()->GetActorTransform();
+	ClientStartVelocity = MovementComponent->GetVelocity();
 }
 
 void UReplicationComponent::AutonomousProxy_OnRep_ServerState()
@@ -133,15 +135,34 @@ void UReplicationComponent::ClientTick(float DeltaTime)
 	ClientTimeSinceUpdate += DeltaTime;
 
 	if (CLientTimeBetweenLastUpdates < KINDA_SMALL_NUMBER) return;
+	if (MovementComponent == nullptr) return;
 
 	auto TargetLocation = ServerState.Transform.GetLocation();
 	float LerpRatio = ClientTimeSinceUpdate / CLientTimeBetweenLastUpdates;
-	FVector StartLocation = ClientStartLocation;
-	FVector NewLocation = FMath::LerpStable(StartLocation, TargetLocation, LerpRatio);
+	//UE_LOG(LogTemp, Warning, TEXT("ClientTimeSinceUpdate:%f"), ClientTimeSinceUpdate);
+	//UE_LOG(LogTemp, Warning, TEXT("CLientTimeBetweenLastUpdates:%f"), CLientTimeBetweenLastUpdates);
+	//UE_LOG(LogTemp, Warning, TEXT("----------------------------------"));
+
+	if (LerpRatio > 1)
+		LerpRatio = 1;
+	FVector StartLocation = ClientStartTransform.GetLocation();
+	float VelocityToDerivative = CLientTimeBetweenLastUpdates * 100;
+	FVector StartDerivative = ClientStartVelocity  * VelocityToDerivative;
+	FVector TargetDerivative = ServerState.Velocity *VelocityToDerivative;
+
+	FVector NewLocation = FMath::CubicInterp(StartLocation,StartDerivative, TargetLocation, TargetDerivative, LerpRatio);
 	GetOwner()->SetActorLocation(NewLocation);
 
+	//UE_LOG(LogTemp, Warning, TEXT("StartLocation:%d,%d,%d"), StartLocation.X, StartLocation.Y, StartLocation.Z);
+	//UE_LOG(LogTemp, Warning, TEXT("LerpRatio:%d"), LerpRatio);
+
+
+	FVector NewDerivative = FMath::CubicInterpDerivative(StartLocation, StartDerivative, TargetLocation, TargetDerivative, LerpRatio);
+	FVector NewVelocity = NewDerivative / VelocityToDerivative;
+	MovementComponent->SetVelocity(NewVelocity);
+
 	auto TargetRotation = ServerState.Transform.GetRotation();
-	FQuat StartRotation = ClientStartRotation;
+	FQuat StartRotation = ClientStartTransform.GetRotation();
 	FQuat NewRotation = FQuat::Slerp(StartRotation, TargetRotation, LerpRatio);
 	GetOwner()->SetActorRotation(NewRotation);
 }

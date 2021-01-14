@@ -59,11 +59,11 @@ private:
 
 	UPROPERTY()
 	UVehicleMovement* MovementComponent;
+	FTransform ClientStartTransform;
+	float ClientTimeSinceUpdate = 0;
+	float CLientTimeBetweenLastUpdates = 0;
 
-	float ClientTimeSinceUpdate;
-	float CLientTimeBetweenLastUpdates;
-	FVector ClientStartLocation;
-	FQuat ClientStartRotation;
+	FVector ClientStartVelocity;
 
 	void ClientTick(float DeltaTime);
 };
